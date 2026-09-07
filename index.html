@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>60초 미션 클리어 챌린지 — 독서행사 부스 게임</title>
+  <!-- Pretendard 웹폰트 -->
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- 캔버스 레이어 -->
+  <canvas id="bgCanvas"></canvas>
+  <canvas id="confettiCanvas"></canvas>
+
+  <div class="app-container">
+    <!-- 상단 헤더 -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="brand-tag">🎯 60-Second Mission Challenge</div>
+        <h1 id="headerTitle">📚 60초 독서 미션 챌린지</h1>
+      </div>
+      <div class="header-right">
+        <span id="connectionBadge" class="mode-badge offline">● 로컬/오프라인 모드</span>
+        <button id="btnToggleSound" class="icon-btn" title="소리 켜기/끄기 (단축키: M)">
+          <span id="soundIcon">🔊</span>
+        </button>
+        <button id="btnToggleFullscreen" class="icon-btn" title="전체화면 (단축키: F)">
+          <span>⛶ 전체화면</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 메인 스테이지 영역 -->
+    <main class="main-stage">
+      
+      <!-- 1. 대기 화면 (IDLE) -->
+      <section id="viewIdle" class="state-view active">
+        <div class="idle-banner">
+          <div class="hero-book-icon">📖</div>
+          <h2 id="idleTitle" class="idle-title">60초 독서 미션 챌린지</h2>
+          <p id="idleSubtitle" class="idle-subtitle">책 속의 미션을 60초 안에 클리어하라!</p>
+        </div>
+
+        <div class="idle-actions">
+          <button id="btnStartEntry" class="btn-primary-glow">
+            <span>✨ 미션 도전하기</span>
+          </button>
+        </div>
+
+        <!-- 실시간 명예의 전당 랭킹보드 -->
+        <div class="idle-rank-container">
+          <div class="rank-header">
+            <h3>🏆 실시간 명예의 전당 (Top Speeder)</h3>
+            <span style="font-size: 0.85rem; color: var(--text-muted);">성공 소요시간 순</span>
+          </div>
+          <ul id="idleRankList" class="rank-list">
+            <!-- JS 동적 렌더링 -->
+          </ul>
+        </div>
+      </section>
+
+      <!-- 2. 참가자 이름 입력 (NAME ENTRY) -->
+      <section id="viewNameEntry" class="state-view">
+        <div class="entry-card">
+          <h2>도전자 등록</h2>
+          <p>도전자의 이름 또는 멋진 닉네임을 입력해주세요!</p>
+          <div class="entry-input-group">
+            <input type="text" id="participantInput" placeholder="예: 책벌레 홍길동" maxlength="15" autofocus autocomplete="off" />
+            <button id="btnConfirmDraw" class="btn-draw-start">뽑기 시작 🎲</button>
+          </div>
+          <button id="btnCancelEntry" class="icon-btn" style="width: 100%; justify-content: center;">돌아가기</button>
+        </div>
+      </section>
+
+      <!-- 3. 미션 뽑기 연출 (DRAWING) -->
+      <section id="viewDrawing" class="state-view">
+        <div class="draw-stage">
+          <div class="magical-book">
+            <div style="font-size: 1.1rem; color: var(--text-muted); margin-bottom: 1.5rem;">✨ 운명의 미션을 펼치는 중...</div>
+            <div class="slot-machine-reel">
+              <div id="slotText" class="slot-text">미션을 선택하고 있습니다...</div>
+            </div>
+            <div class="draw-status-text">✦ MISSION SELECTING ✦</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. 미션 확인 및 준비 (READY) -->
+      <section id="viewReady" class="state-view">
+        <div class="mission-card-wrap">
+          <div class="mission-display-card">
+            <div class="card-participant-header">
+              <div class="challenger-name">도전자: <span id="readyParticipantName">홍길동</span></div>
+              <div class="mission-badges">
+                <span id="readyCategory" class="badge-tag badge-category">말하기</span>
+                <span id="readyLevel" class="badge-tag badge-level">난이도: 중</span>
+              </div>
+            </div>
+            <div class="mission-content-box">
+              <div id="readyMissionText" class="mission-text-large">책 5권을 탑처럼 쓰러지지 않게 높이 쌓기</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ready-controls">
+          <button id="btnStartTimer" class="btn-start-timer">
+            <span>⏱️ 60초 타이머 시작!</span>
+          </button>
+          <button id="btnPassMission" class="btn-pass-mission" title="어려운 미션일 때 1회 재뽑기 가능">
+            <span>🔄 재뽑기 (1회)</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- 5. 60초 카운트다운 타이머 (TIMING) -->
+      <section id="viewTiming" class="state-view">
+        <div class="timer-container">
+          <div class="timer-mission-mini">
+            <span id="timerParticipant" class="p-name">[홍길동]</span>
+            <span id="timerMission" class="m-desc">미션 내용이 표시됩니다.</span>
+          </div>
+
+          <!-- 원형 SVG 게이지 -->
+          <div class="circular-gauge-wrapper">
+            <svg class="gauge-svg" viewBox="0 0 360 360">
+              <circle class="gauge-bg" cx="180" cy="180" r="160"></circle>
+              <circle id="timerGaugeProgress" class="gauge-progress" cx="180" cy="180" r="160"></circle>
+            </svg>
+            <div class="gauge-center-content">
+              <div id="timerSecondsNumber" class="seconds-number">60</div>
+              <div class="seconds-unit">SECONDS</div>
+            </div>
+          </div>
+
+          <!-- 진행자 즉시 판정 액션 버튼 -->
+          <div class="in-game-actions">
+            <button id="btnJudgeClear" class="btn-verdict-clear">
+              <span>🎉 미션 클리어 (성공)</span>
+            </button>
+            <button id="btnJudgeFail" class="btn-verdict-fail">
+              <span>❌ 실패 처리</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. 성공 축하 연출 (SUCCESS) -->
+      <section id="viewSuccess" class="state-view">
+        <div class="verdict-card success-theme">
+          <div class="stamp-clear">MISSION CLEAR!</div>
+          <div class="verdict-info">
+            <h3>🎉 축하합니다! <span id="clearParticipantName" style="color: var(--accent-gold);"></span> 님!</h3>
+            <p id="clearMissionText" style="color: var(--text-muted); font-size: 1.15rem; margin: 0.5rem 0;"></p>
+            <div class="clear-time-highlight">
+              기록: <span id="clearElapsedSeconds">18.4초</span>
+            </div>
+            <p style="color: var(--accent-emerald); font-weight: 700; font-size: 1.1rem;">명예의 전당 랭킹보드에 성공적으로 등록되었습니다!</p>
+          </div>
+          <div class="auto-return-timer">
+            <span id="successAutoCount">5</span>초 후 대기 화면으로 자동 복귀합니다.
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. 실패 연출 (FAIL) -->
+      <section id="viewFail" class="state-view">
+        <div class="verdict-card fail-theme">
+          <div class="stamp-failed">MISSION FAILED</div>
+          <div class="verdict-info">
+            <h3 style="color: #f87171;"><span id="failParticipantName"></span> 님, 아쉽습니다!</h3>
+            <p class="fail-encourage">다음 기회에 다시 도전해보세요! 독서의 힘으로 언제든 재도전 환영합니다. 💪</p>
+          </div>
+          <div class="auto-return-timer">
+            <span id="failAutoCount">5</span>초 후 대기 화면으로 자동 복귀합니다.
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 진행자 마스터 오버레이 패널 (Operator Game Master Panel) -->
+    <div class="master-overlay">
+      <button id="masterToggleBtn" class="master-toggle-btn" title="진행자 관리 패널 (단축키: F2 또는 Ctrl+M)">
+        ⚙️
+      </button>
+      <div id="masterPanelCard" class="master-panel-card">
+        <div class="master-header">
+          <h4>🎮 현장 진행자 컨트롤</h4>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">F2 / Ctrl+M</span>
+        </div>
+        <div class="master-body">
+          <button id="masterBtnForceClear" class="master-btn" style="background: #059669;">⚡ 즉시 클리어 판정</button>
+          <button id="masterBtnForceFail" class="master-btn" style="background: #e11d48;">⚡ 즉시 실패 처리</button>
+          <button id="masterBtnResetIdle" class="master-btn btn-reset">🏠 대기 화면으로 리셋</button>
+          <button id="masterBtnGoAdmin" class="master-btn btn-admin">⚙️ 관리자 설정 대시보드 열기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 토스트 메시지 -->
+    <div id="toastMsg" class="toast-msg">알림 메시지</div>
+
+  </div>
+
+  <!-- 스크립트 로드 -->
+  <script src="config.js"></script>
+  <script src="sound.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

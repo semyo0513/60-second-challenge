@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>60초 미션 챌린지 — 관리자 대시보드</title>
+  <!-- Pretendard 웹폰트 -->
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* 관리자 대시보드 전용 스타일 */
+    body {
+      background-color: #0b0f19;
+      color: #f8fafc;
+    }
+    .admin-wrapper {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .admin-top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+      margin-bottom: 2rem;
+    }
+    .admin-title-area h1 {
+      font-size: 1.8rem;
+      color: #fbbf24;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .admin-tabs {
+      display: flex;
+      gap: 0.8rem;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 0.5rem;
+    }
+    .admin-tab-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid transparent;
+      color: #94a3b8;
+      padding: 0.75rem 1.4rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .admin-tab-btn:hover {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+    }
+    .admin-tab-btn.active {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      border-color: rgba(245, 158, 11, 0.4);
+    }
+    .tab-content-panel {
+      display: none;
+    }
+    .tab-content-panel.active {
+      display: block;
+    }
+    .admin-card {
+      background: rgba(19, 27, 46, 0.85);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      border-radius: 12px;
+      padding: 1.8rem;
+      margin-bottom: 1.5rem;
+      backdrop-filter: blur(12px);
+    }
+    .admin-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.2rem;
+      padding-bottom: 0.8rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .admin-card-header h2 {
+      font-size: 1.3rem;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .admin-table-wrap {
+      overflow-x: auto;
+    }
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: center;
+      font-size: 0.95rem;
+    }
+    .admin-table th {
+      background: rgba(255, 255, 255, 0.05);
+      color: #94a3b8;
+      padding: 0.9rem;
+      font-weight: 700;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    }
+    .admin-table td {
+      padding: 0.9rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: #e2e8f0;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .badge-cyan { background: rgba(6, 182, 212, 0.2); color: #06b6d4; }
+    .badge-purple { background: rgba(139, 92, 246, 0.2); color: #8b5cf6; }
+    .badge-emerald { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+    .badge-rose { background: rgba(244, 63, 94, 0.2); color: #f43f5e; }
+    
+    .status-toggle-btn {
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+    }
+    .status-toggle-btn.active { background: #059669; color: #fff; }
+    .status-toggle-btn.inactive { background: #475569; color: #94a3b8; }
+
+    .action-sm-btn {
+      padding: 0.35rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-delete { background: rgba(244, 63, 94, 0.2); color: #f87171; }
+    .btn-delete:hover { background: #e11d48; color: #fff; }
+
+    .admin-form-group {
+      margin-bottom: 1.2rem;
+    }
+    .admin-form-group label {
+      display: block;
+      margin-bottom: 0.4rem;
+      color: #cbd5e1;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .admin-input, .admin-select, .admin-textarea {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      color: #fff;
+      font-size: 1rem;
+      outline: none;
+    }
+    .admin-input:focus, .admin-select:focus, .admin-textarea:focus {
+      border-color: #f59e0b;
+    }
+
+    /* 통계 카드 그리드 */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 1.2rem;
+      text-align: center;
+    }
+    .stat-label { font-size: 0.9rem; color: #94a3b8; margin-bottom: 0.5rem; }
+    .stat-value { font-size: 1.8rem; font-weight: 800; color: #fbbf24; }
+
+    /* 모달 */
+    .admin-modal {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(6px);
+      z-index: 5000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .admin-modal-box {
+      background: #131b2e;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      border-radius: 12px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 500px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. 관리자 PIN 인증 모달 (최초 접근 시) -->
+  <div id="pinAuthModal" class="admin-modal" style="display: flex;">
+    <div class="admin-modal-box" style="text-align: center;">
+      <h2 style="color: #fbbf24; margin-bottom: 0.5rem;">🔒 관리자 인증</h2>
+      <p style="color: #94a3b8; margin-bottom: 1.5rem;">관리자 PIN 번호를 입력하세요 (기본값: 1234)</p>
+      <input type="password" id="inputAdminPin" class="admin-input" style="font-size: 1.5rem; letter-spacing: 8px; text-align: center; margin-bottom: 1.5rem;" maxlength="8" autofocus />
+      <button id="btnSubmitPin" class="btn-primary-glow" style="width: 100%; justify-content: center; font-size: 1.1rem; padding: 0.8rem;">대시보드 입장</button>
+      <div style="margin-top: 1rem;">
+        <a href="index.html" style="color: #94a3b8; font-size: 0.9rem; text-decoration: none;">← 게임 화면으로 돌아가기</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 관리자 메인 대시보드 본문 -->
+  <div id="adminMainWrap" class="admin-wrapper" style="display: none;">
+    <!-- 탑 네비게이션 -->
+    <header class="admin-top-nav">
+      <div class="admin-title-area">
+        <h1>⚙️ 60초 미션 챌린지 — 관리자 대시보드</h1>
+      </div>
+      <div style="display: flex; gap: 0.8rem;">
+        <a href="index.html" class="icon-btn" style="text-decoration: none;">🎮 게임 화면 가기</a>
+        <button id="btnLogout" class="icon-btn" style="background: rgba(244, 63, 94, 0.2); border-color: rgba(244, 63, 94, 0.4);">🚪 로그아웃</button>
+      </div>
+    </header>
+
+    <!-- 탭 버튼 네비게이션 -->
+    <nav class="admin-tabs">
+      <button class="admin-tab-btn active" data-tab="tabMissions">📋 미션 관리</button>
+      <button class="admin-tab-btn" data-tab="tabSettings">⚙️ 게임 설정</button>
+      <button class="admin-tab-btn" data-tab="tabRankings">🏆 랭킹보드 관리</button>
+      <button class="admin-tab-btn" data-tab="tabLogs">📊 통계 및 게임 로그</button>
+    </nav>
+
+    <!-- TAB 1: 미션 관리 -->
+    <section id="tabMissions" class="tab-content-panel active">
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <h2>📋 등록된 미션 목록 <span id="missionCountBadge" class="badge badge-cyan" style="margin-left: 0.5rem;">0개</span></h2>
+          <div style="display: flex; gap: 0.6rem;">
+            <button id="btnBatchPresetMissions" class="icon-btn" style="background: rgba(139, 92, 246, 0.2); border-color: #8b5cf6;">✨ 추천 미션 20종 일괄 추가</button>
+            <button id="btnOpenAddMissionModal" class="btn-primary-glow" style="font-size: 0.95rem; padding: 0.5rem 1.2rem;">+ 새 미션 추가</button>
+          </div>
+        </div>
+
+        <!-- 검색 & 카테고리 필터 -->
+        <div style="display: flex; gap: 1rem; margin-bottom: 1.2rem;">
+          <input type="text" id="missionSearchInput" class="admin-input" placeholder="🔍 미션 내용 또는 ID 검색..." style="flex: 2;" />
+          <select id="categoryFilter" class="admin-select" style="flex: 1;">
+            <option value="ALL">모든 카테고리</option>
+            <option value="찾기">찾기</option>
+            <option value="말하기">말하기</option>
+            <option value="낭독">낭독</option>
+            <option value="신체">신체</option>
+            <option value="퀴즈">퀴즈</option>
+            <option value="일반">일반</option>
+          </select>
+        </div>
+
+        <!-- 미션 테이블 -->
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th style="width: 100px;">ID</th>
+                <th>미션 내용</th>
+                <th style="width: 100px;">카테고리</th>
+                <th style="width: 90px;">난이도</th>
+                <th style="width: 110px;">상태</th>
+                <th style="width: 80px;">관리</th>
+              </tr>
+            </thead>
+            <tbody id="missionsTableBody">
+              <!-- JS 렌더링 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: 게임 설정 -->
+    <section id="tabSettings" class="tab-content-panel">
+      <div class="admin-card" style="max-width: 750px;">
+        <div class="admin-card-header">
+          <h2>⚙️ 행사 기본 환경 설정</h2>
+        </div>
+        <div class="admin-form-group">
+          <label>이벤트 타이틀</label>
+          <input type="text" id="settingEventTitle" class="admin-input" />
+        </div>
+        <div class="admin-form-group">
+          <label>서브 타이틀</label>
+          <input type="text" id="settingSubTitle" class="admin-input" />
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="admin-form-group">
+            <label>타이머 제한시간 (초 단위)</label>
+            <input type="number" id="settingTimerSeconds" class="admin-input" min="10" max="300" />
+          </div>
+          <div class="admin-form-group">
+            <label>관리자 PIN 번호</label>
+            <input type="text" id="settingAdminPin" class="admin-input" maxlength="10" />
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="admin-form-group">
+            <label>결과창 노출 후 자동 복귀 (초)</label>
+            <input type="number" id="settingAutoReturn" class="admin-input" min="2" max="30" />
+          </div>
+          <div class="admin-form-group" style="display: flex; align-items: center; gap: 0.6rem; padding-top: 1.8rem;">
+            <input type="checkbox" id="settingAllowPass" style="width: 20px; height: 20px; accent-color: #f59e0b;" />
+            <label for="settingAllowPass" style="margin-bottom: 0; cursor: pointer;">미션 1회 재뽑기(Pass) 허용</label>
+          </div>
+        </div>
+        <button id="btnSaveSettings" class="btn-primary-glow" style="margin-top: 1rem; width: 100%; justify-content: center;">설정 저장하기</button>
+      </div>
+    </section>
+
+    <!-- TAB 3: 랭킹보드 관리 -->
+    <section id="tabRankings" class="tab-content-panel">
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <h2>🏆 명예의 전당 랭킹 목록</h2>
+          <div style="display: flex; gap: 0.6rem;">
+            <button id="btnExportRankingCsv" class="icon-btn">📥 CSV 내보내기</button>
+            <button id="btnResetRankings" class="icon-btn" style="background: rgba(244, 63, 94, 0.2); border-color: #f43f5e;">⚠️ 랭킹 전체 초기화</button>
+          </div>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th style="width: 90px;">순위</th>
+                <th style="width: 140px;">참가자명</th>
+                <th>성공 미션</th>
+                <th style="width: 120px;">소요시간</th>
+                <th style="width: 180px;">클리어 일시</th>
+              </tr>
+            </thead>
+            <tbody id="rankingsTableBody">
+              <!-- JS 렌더링 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: 통계 및 게임 로그 -->
+    <section id="tabLogs" class="tab-content-panel">
+      <!-- 통계 지표 -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">총 도전 횟수</div>
+          <div id="statTotalPlays" class="stat-value">0회</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">미션 성공</div>
+          <div id="statClearCount" class="stat-value" style="color: #10b981;">0회</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">미션 실패</div>
+          <div id="statFailCount" class="stat-value" style="color: #f43f5e;">0회</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">클리어 성공률</div>
+          <div id="statClearRate" class="stat-value" style="color: #06b6d4;">0%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">평균 클리어 시간</div>
+          <div id="statAvgTime" class="stat-value">0초</div>
+        </div>
+      </div>
+
+      <!-- 로그 테이블 -->
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <h2>📊 전체 시도 로그 (성공/실패 이력)</h2>
+          <div style="display: flex; gap: 0.6rem;">
+            <button id="btnExportLogsCsv" class="icon-btn">📥 CSV 내보내기</button>
+            <button id="btnResetLogs" class="icon-btn" style="background: rgba(244, 63, 94, 0.2); border-color: #f43f5e;">⚠️ 로그 전체 초기화</button>
+          </div>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th style="width: 80px;">순번</th>
+                <th style="width: 140px;">참가자명</th>
+                <th>수행 미션</th>
+                <th style="width: 100px;">결과</th>
+                <th style="width: 120px;">기록시간</th>
+              </tr>
+            </thead>
+            <tbody id="logsTableBody">
+              <!-- JS 렌더링 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- 신규 미션 추가 모달 -->
+  <div id="addMissionModal" class="admin-modal">
+    <div class="admin-modal-box">
+      <h2 style="color: #fbbf24; margin-bottom: 1.2rem;">✨ 신규 미션 등록</h2>
+      <form id="addMissionForm" onsubmit="return false;">
+        <div class="admin-form-group">
+          <label>미션 내용</label>
+          <textarea id="newMissionText" class="admin-textarea" rows="3" placeholder="예: 책 5권을 탑처럼 쓰러지지 않게 높이 쌓기" required></textarea>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="admin-form-group">
+            <label>카테고리</label>
+            <select id="newCategory" class="admin-select">
+              <option value="찾기">찾기</option>
+              <option value="말하기">말하기</option>
+              <option value="낭독">낭독</option>
+              <option value="신체">신체</option>
+              <option value="퀴즈">퀴즈</option>
+              <option value="일반">일반</option>
+            </select>
+          </div>
+          <div class="admin-form-group">
+            <label>난이도</label>
+            <select id="newLevel" class="admin-select">
+              <option value="하">하</option>
+              <option value="중" selected>중</option>
+              <option value="상">상</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: flex; gap: 0.8rem; margin-top: 1.5rem;">
+          <button type="button" id="btnAddMissionSubmit" class="btn-primary-glow" style="flex: 1; justify-content: center; font-size: 1rem; padding: 0.8rem;">등록하기</button>
+          <button type="button" id="btnCloseAddMissionModal" class="icon-btn" style="flex: 1; justify-content: center;">취소</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 스크립트 로드 -->
+  <script src="config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,1083 @@
+/* ==========================================================================
+   60초 미션 클리어 챌린지 — 메인 스타일시트
+   테마: 매지컬 아카이브 & 독서 판타지 아레나 (골드 / 딥네이비 / 앰버)
+   ========================================================================== */
+
+:root {
+  --bg-primary: #0b0f19;
+  --bg-secondary: #131b2e;
+  --bg-card: rgba(23, 32, 54, 0.85);
+  --bg-glass: rgba(19, 27, 46, 0.7);
+  --border-glass: rgba(212, 175, 55, 0.25);
+  --border-glow: rgba(245, 158, 11, 0.5);
+
+  --accent-gold: #f59e0b;
+  --accent-gold-light: #fef08a;
+  --accent-emerald: #10b981;
+  --accent-rose: #f43f5e;
+  --accent-cyan: #06b6d4;
+  --accent-purple: #8b5cf6;
+
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-gold: #fbbf24;
+
+  --font-title: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --radius-lg: 20px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+
+  --shadow-gold: 0 0 30px rgba(245, 158, 11, 0.25);
+  --shadow-neon: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-title);
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  min-height: 100vh;
+  overflow-x: hidden;
+  user-select: none;
+  background-image: 
+    radial-gradient(circle at 15% 20%, rgba(245, 158, 11, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.05) 0%, transparent 60%);
+}
+
+/* 배경 파티클 캔버스 */
+#bgCanvas, #confettiCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1;
+}
+
+#confettiCanvas {
+  z-index: 999;
+}
+
+/* 전체 컨테이너 */
+.app-container {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 1.5rem 2rem;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+/* 상단 헤더 */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-glass);
+}
+
+.header-left .brand-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent-gold);
+  background: rgba(245, 158, 11, 0.12);
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.header-left h1 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #fff 0%, #fbbf24 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.icon-btn {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  color: var(--text-main);
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: var(--accent-gold);
+  transform: translateY(-1px);
+}
+
+.mode-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--accent-emerald);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.mode-badge.offline {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--accent-gold);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+/* 메인 스테이지 영역 */
+.main-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  padding: 2rem 0;
+}
+
+/* 상태별 섹션 (State Views) */
+.state-view {
+  width: 100%;
+  max-width: 1100px;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  animation: fadeIn 0.35s ease forwards;
+}
+
+.state-view.active {
+  display: flex;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ==========================================================================
+   1. 대기 화면 (Idle / Attract Mode)
+   ========================================================================== */
+.idle-banner {
+  margin-bottom: 2.5rem;
+}
+
+.hero-book-icon {
+  font-size: 4.5rem;
+  margin-bottom: 1rem;
+  display: inline-block;
+  animation: floatBook 3s ease-in-out infinite;
+  filter: drop-shadow(0 10px 20px rgba(245, 158, 11, 0.3));
+}
+
+@keyframes floatBook {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(3deg); }
+}
+
+.idle-title {
+  font-size: 3.2rem;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  margin-bottom: 0.6rem;
+  background: linear-gradient(135deg, #ffffff 20%, #fde047 60%, #f59e0b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.idle-subtitle {
+  font-size: 1.35rem;
+  color: var(--text-muted);
+}
+
+.idle-actions {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.btn-primary-glow {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #0b0f19;
+  font-weight: 800;
+  font-size: 1.4rem;
+  padding: 1.1rem 2.8rem;
+  border-radius: 50px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 25px rgba(245, 158, 11, 0.5), 0 8px 20px rgba(0,0,0,0.3);
+  transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-primary-glow:hover {
+  transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 0 35px rgba(245, 158, 11, 0.7), 0 12px 25px rgba(0,0,0,0.4);
+}
+
+.btn-primary-glow:active {
+  transform: translateY(1px);
+}
+
+/* 대기 화면 실시간 랭킹보드 */
+.idle-rank-container {
+  width: 100%;
+  max-width: 900px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-neon);
+}
+
+.rank-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rank-header h3 {
+  font-size: 1.25rem;
+  color: var(--accent-gold);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rank-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.8rem;
+}
+
+.rank-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-sm);
+  border-left: 4px solid var(--accent-gold);
+  transition: transform 0.2s ease;
+}
+
+.rank-item:hover {
+  transform: translateX(4px);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.rank-item.rank-1 { border-left-color: #ffd700; background: rgba(255, 215, 0, 0.08); }
+.rank-item.rank-2 { border-left-color: #c0c0c0; background: rgba(192, 192, 192, 0.08); }
+.rank-item.rank-3 { border-left-color: #cd7f32; background: rgba(205, 127, 50, 0.08); }
+
+.rank-badge {
+  font-weight: 800;
+  font-size: 1.1rem;
+  margin-right: 0.6rem;
+  width: 24px;
+}
+
+.rank-name {
+  font-weight: 700;
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rank-time {
+  font-weight: 700;
+  color: var(--accent-gold-light);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+/* ==========================================================================
+   2. 참가자 이름 등록 모달 / 바 (Name Entry)
+   ========================================================================== */
+.entry-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem 3rem;
+  width: 100%;
+  max-width: 600px;
+  box-shadow: var(--shadow-gold), var(--shadow-neon);
+  backdrop-filter: blur(16px);
+}
+
+.entry-card h2 {
+  font-size: 2rem;
+  color: var(--accent-gold);
+  margin-bottom: 0.5rem;
+}
+
+.entry-card p {
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+  font-size: 1.1rem;
+}
+
+.entry-input-group {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.entry-input-group input {
+  flex: 1;
+  background: rgba(11, 15, 25, 0.8);
+  border: 2px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.2rem;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.entry-input-group input:focus {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+}
+
+.btn-draw-start {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #0b0f19;
+  font-weight: 800;
+  font-size: 1.2rem;
+  padding: 0 2rem;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.btn-draw-start:hover {
+  transform: scale(1.04);
+}
+
+/* ==========================================================================
+   3. 미션 뽑기 연출 화면 (Drawing View)
+   ========================================================================== */
+.draw-stage {
+  perspective: 1000px;
+  margin: 2rem 0;
+  width: 100%;
+  max-width: 800px;
+}
+
+.magical-book {
+  background: linear-gradient(145deg, #1e293b, #0f172a);
+  border: 3px solid var(--accent-gold);
+  border-radius: 16px;
+  padding: 3rem 2.5rem;
+  box-shadow: 0 0 40px rgba(245, 158, 11, 0.3), inset 0 0 20px rgba(245, 158, 11, 0.1);
+  position: relative;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.slot-machine-reel {
+  height: 120px;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slot-text {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--accent-gold-light);
+  line-height: 1.4;
+  word-break: keep-all;
+  filter: blur(0px);
+  transition: filter 0.1s ease;
+}
+
+.slot-text.spinning {
+  animation: slotRoll 0.08s linear infinite;
+  filter: blur(2px);
+}
+
+@keyframes slotRoll {
+  0% { transform: translateY(-30px); opacity: 0.3; }
+  50% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(30px); opacity: 0.3; }
+}
+
+.draw-status-text {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--accent-cyan);
+  margin-top: 1.5rem;
+  letter-spacing: 2px;
+  animation: pulseCyan 1.5s infinite;
+}
+
+@keyframes pulseCyan {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; text-shadow: 0 0 10px var(--accent-cyan); }
+}
+
+/* ==========================================================================
+   4. 미션 확인 및 준비 화면 (Mission Ready View)
+   ========================================================================== */
+.mission-card-wrap {
+  width: 100%;
+  max-width: 850px;
+  perspective: 1200px;
+  margin-bottom: 2rem;
+}
+
+.mission-display-card {
+  background: linear-gradient(135deg, #1e293b 0%, #172033 100%);
+  border: 2px solid var(--accent-gold);
+  border-radius: var(--radius-lg);
+  padding: 3rem 3.5rem;
+  box-shadow: 0 0 40px rgba(245, 158, 11, 0.25), var(--shadow-neon);
+  position: relative;
+  animation: cardFlipIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes cardFlipIn {
+  from { transform: rotateY(70deg) scale(0.8); opacity: 0; }
+  to { transform: rotateY(0deg) scale(1); opacity: 1; }
+}
+
+.card-participant-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.8rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.challenger-name {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.challenger-name span {
+  color: var(--accent-gold);
+}
+
+.mission-badges {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.badge-tag {
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.35rem 0.85rem;
+  border-radius: 20px;
+  text-transform: uppercase;
+}
+
+.badge-category {
+  background: rgba(6, 182, 212, 0.2);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(6, 182, 212, 0.4);
+}
+
+.badge-level {
+  background: rgba(139, 92, 246, 0.2);
+  color: var(--accent-purple);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+}
+
+.mission-content-box {
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 1.5rem 0;
+}
+
+.mission-text-large {
+  font-size: 2.3rem;
+  font-weight: 800;
+  line-height: 1.5;
+  color: #fff;
+  word-break: keep-all;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+.ready-controls {
+  display: flex;
+  gap: 1.2rem;
+  justify-content: center;
+  width: 100%;
+  max-width: 600px;
+}
+
+.btn-start-timer {
+  flex: 2;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 800;
+  padding: 1.2rem 2.5rem;
+  border-radius: 50px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.4);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.btn-start-timer:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 0 35px rgba(16, 185, 129, 0.6);
+}
+
+.btn-pass-mission {
+  flex: 1;
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 1.2rem 1.5rem;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-pass-mission:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+}
+
+/* ==========================================================================
+   5. 60초 타이머 화면 (Timing View)
+   ========================================================================== */
+.timer-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.timer-mission-mini {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  padding: 1rem 2rem;
+  margin-bottom: 2rem;
+  max-width: 900px;
+  width: 100%;
+}
+
+.timer-mission-mini .p-name {
+  color: var(--accent-gold);
+  font-weight: 800;
+  font-size: 1.2rem;
+  margin-right: 0.5rem;
+}
+
+.timer-mission-mini .m-desc {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+  word-break: keep-all;
+}
+
+/* 대형 서큘러 타이머 게이지 */
+.circular-gauge-wrapper {
+  position: relative;
+  width: 360px;
+  height: 360px;
+  margin-bottom: 2rem;
+}
+
+.gauge-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.gauge-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 16;
+}
+
+.gauge-progress {
+  fill: none;
+  stroke: var(--accent-emerald);
+  stroke-width: 16;
+  stroke-linecap: round;
+  stroke-dasharray: 1005.3; /* 2 * PI * 160 */
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.1s linear, stroke 0.5s ease;
+  filter: drop-shadow(0 0 12px var(--accent-emerald));
+}
+
+.gauge-center-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.seconds-number {
+  font-size: 7.5rem;
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 25px rgba(255, 255, 255, 0.4);
+}
+
+.seconds-unit {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+  margin-top: 0.3rem;
+}
+
+/* 10초 이하 긴장 연출 상태 */
+body.panic-mode {
+  animation: bgPanicPulse 1s ease-in-out infinite;
+}
+
+body.panic-mode .seconds-number {
+  color: #ff334b !important;
+  text-shadow: 0 0 30px rgba(255, 51, 75, 0.8) !important;
+  animation: numberPanicBounce 0.5s ease-in-out infinite alternate;
+}
+
+body.panic-mode .gauge-progress {
+  stroke: #ff334b !important;
+  filter: drop-shadow(0 0 20px #ff334b) !important;
+}
+
+body.panic-mode .main-stage {
+  animation: stageShake 0.4s ease-in-out infinite;
+}
+
+@keyframes bgPanicPulse {
+  0%, 100% { background-color: #0b0f19; }
+  50% { background-color: #240a12; }
+}
+
+@keyframes numberPanicBounce {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+
+@keyframes stageShake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-2px, 2px); }
+  50% { transform: translate(2px, -2px); }
+  75% { transform: translate(-2px, -1px); }
+}
+
+/* 현장 진행자 실시간 판정 버튼 바 */
+.in-game-actions {
+  display: flex;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 600px;
+}
+
+.btn-verdict-clear {
+  flex: 1.5;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 800;
+  padding: 1.2rem;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.5);
+  transition: all 0.2s;
+}
+
+.btn-verdict-clear:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.btn-verdict-fail {
+  flex: 1;
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 800;
+  padding: 1.2rem;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(244, 63, 94, 0.4);
+  transition: all 0.2s;
+}
+
+.btn-verdict-fail:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+/* ==========================================================================
+   6. 결과 연출 (Success / Fail Views)
+   ========================================================================== */
+.verdict-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 3.5rem;
+  max-width: 700px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-neon);
+}
+
+/* 성공 연출 */
+.verdict-card.success-theme {
+  border: 3px solid #fbbf24;
+  box-shadow: 0 0 60px rgba(251, 191, 36, 0.4);
+}
+
+.stamp-clear {
+  font-size: 3.5rem;
+  font-weight: 900;
+  color: #ffd700;
+  border: 6px double #ffd700;
+  padding: 0.8rem 2rem;
+  display: inline-block;
+  border-radius: 16px;
+  transform: rotate(-6deg) scale(2);
+  opacity: 0;
+  text-shadow: 0 0 25px rgba(255, 215, 0, 0.8);
+  box-shadow: inset 0 0 20px rgba(255, 215, 0, 0.4);
+  animation: stampSlam 0.5s cubic-bezier(0.25, 1, 0.5, 1) 0.1s forwards;
+  margin-bottom: 2rem;
+}
+
+@keyframes stampSlam {
+  0% { transform: rotate(-25deg) scale(3.5); opacity: 0; }
+  70% { transform: rotate(-6deg) scale(0.9); opacity: 1; }
+  100% { transform: rotate(-6deg) scale(1); opacity: 1; }
+}
+
+.verdict-info {
+  margin-top: 1rem;
+}
+
+.verdict-info h3 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.clear-time-highlight {
+  font-size: 2.8rem;
+  font-weight: 900;
+  color: var(--accent-gold-light);
+  margin: 1rem 0;
+}
+
+/* 실패 연출 */
+.verdict-card.fail-theme {
+  border: 3px solid #f43f5e;
+  box-shadow: 0 0 60px rgba(244, 63, 94, 0.4);
+  animation: failShake 0.6s ease-in-out;
+}
+
+@keyframes failShake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-10px, 8px) rotate(-1deg); }
+  40% { transform: translate(10px, -8px) rotate(1deg); }
+  60% { transform: translate(-6px, 4px); }
+  80% { transform: translate(6px, -4px); }
+}
+
+.stamp-failed {
+  font-size: 3.2rem;
+  font-weight: 900;
+  color: #f43f5e;
+  border: 5px solid #f43f5e;
+  padding: 0.8rem 1.8rem;
+  display: inline-block;
+  border-radius: 12px;
+  transform: rotate(4deg);
+  text-shadow: 0 0 20px rgba(244, 63, 94, 0.7);
+  margin-bottom: 1.5rem;
+}
+
+.fail-encourage {
+  font-size: 1.35rem;
+  color: #cbd5e1;
+  margin-top: 1rem;
+}
+
+.auto-return-timer {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  margin-top: 2rem;
+}
+
+/* ==========================================================================
+   7. 진행자 마스터 오버레이 패널 (Operator Game Master Panel)
+   ========================================================================== */
+.master-overlay {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 1000;
+}
+
+.master-toggle-btn {
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border: 2px solid var(--accent-gold);
+  color: var(--accent-gold);
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  font-size: 1.4rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-gold), 0 5px 15px rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.master-toggle-btn:hover {
+  transform: scale(1.1) rotate(15deg);
+}
+
+.master-panel-card {
+  position: absolute;
+  bottom: 70px;
+  right: 0;
+  width: 380px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+  backdrop-filter: blur(16px);
+  display: none;
+  flex-direction: column;
+  gap: 1rem;
+  animation: panelSlideUp 0.2s ease forwards;
+}
+
+.master-panel-card.open {
+  display: flex;
+}
+
+@keyframes panelSlideUp {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.master-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.5rem;
+}
+
+.master-header h4 {
+  color: var(--accent-gold);
+  font-size: 1.1rem;
+}
+
+.master-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.master-btn {
+  padding: 0.75rem;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: center;
+  color: #fff;
+}
+
+.master-btn.btn-reset { background: #475569; }
+.master-btn.btn-reset:hover { background: #64748b; }
+.master-btn.btn-admin { background: #7c3aed; }
+.master-btn.btn-admin:hover { background: #8b5cf6; }
+
+/* ==========================================================================
+   8. PIN 인증 모달 (PIN Modal)
+   ========================================================================== */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-backdrop.open {
+  display: flex;
+}
+
+.pin-modal-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-lg);
+  padding: 2rem 2.5rem;
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: var(--shadow-gold);
+}
+
+.pin-modal-box h3 {
+  color: var(--accent-gold);
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.pin-input {
+  width: 100%;
+  padding: 0.9rem;
+  font-size: 1.8rem;
+  letter-spacing: 12px;
+  text-align: center;
+  background: #0b0f19;
+  border: 2px solid rgba(245, 158, 11, 0.4);
+  border-radius: var(--radius-md);
+  color: #fff;
+  margin: 1.5rem 0;
+  outline: none;
+}
+
+.pin-input:focus {
+  border-color: var(--accent-gold);
+}
+
+.pin-actions {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.pin-btn-confirm {
+  flex: 1;
+  background: var(--accent-gold);
+  color: #0b0f19;
+  font-weight: 800;
+  padding: 0.85rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+}
+
+.pin-btn-cancel {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-weight: 700;
+  padding: 0.85rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+}
+
+/* 토스트 알림 */
+.toast-msg {
+  position: fixed;
+  top: 2rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid var(--accent-gold);
+  color: #fff;
+  padding: 0.8rem 1.8rem;
+  border-radius: 30px;
+  font-weight: 700;
+  box-shadow: 0 5px 25px rgba(0,0,0,0.6);
+  z-index: 3000;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+.toast-msg.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* 미디어 쿼리 - 빔프로젝터 및 태블릿 대응 */
+@media (max-width: 900px) {
+  .idle-title { font-size: 2.4rem; }
+  .seconds-number { font-size: 5.5rem; }
+  .circular-gauge-wrapper { width: 280px; height: 280px; }
+  .mission-text-large { font-size: 1.8rem; }
+  .app-container { padding: 1rem; }
+}
