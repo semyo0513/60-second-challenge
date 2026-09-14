@@ -23,6 +23,9 @@ let currentParticipant = "";
 let currentMission = null;
 let passUsed = false;
 
+// 게임 설정값 객체
+let gameSettings = { ...CONFIG.DEFAULT_SETTINGS };
+
 // 타이머 관련
 let totalTimerSeconds = 60;
 let remainingSeconds = 60;
@@ -109,7 +112,7 @@ function setupEventListeners() {
 function setupKeyboardShortcuts() {
   window.addEventListener("keydown", (e) => {
     // 입력창 포커스 중에는 무시
-    if (e.target.tagName === "INPUT") return;
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
 
     if (e.code === "Space") {
       e.preventDefault();
@@ -134,46 +137,58 @@ function setupKeyboardShortcuts() {
 }
 
 // ==========================================================================
-// 3. 데이터 로딩 및 동기화 (GAS or LocalStorage)
+// 3. 데이터 로딩 및 동기화 (Google Sheets + LocalStorage)
 // ==========================================================================
-async function loadConfigurationAndData() {
-  updateConnectionBadge(false);
+async function loadConfigurationAndData(silent = false) {
+  if (!silent) updateConnectionBadge(false);
 
   // 로컬 저장소 우선 로드
   const localMissions = localStorage.getItem("challenge_missions");
   const localSettings = localStorage.getItem("challenge_settings");
   const localRankings = localStorage.getItem("challenge_rankings");
 
-  activeMissions = localMissions ? JSON.parse(localMissions) : CONFIG.DEFAULT_MISSIONS;
-  rankingsList = localRankings ? JSON.parse(localRankings) : [];
+  if (localMissions) {
+    try { activeMissions = JSON.parse(localMissions); } catch(e){}
+  } else {
+    activeMissions = [...CONFIG.DEFAULT_MISSIONS];
+  }
+
+  if (localRankings) {
+    try { rankingsList = JSON.parse(localRankings); } catch(e){}
+  } else {
+    rankingsList = [];
+  }
 
   if (localSettings) {
-    const s = JSON.parse(localSettings);
-    applySettings(s);
+    try {
+      gameSettings = { ...CONFIG.DEFAULT_SETTINGS, ...JSON.parse(localSettings) };
+    } catch(e){}
   } else {
-    applySettings(CONFIG.DEFAULT_SETTINGS);
+    gameSettings = { ...CONFIG.DEFAULT_SETTINGS };
   }
+  applySettings(gameSettings);
 
   // GAS Web App URL이 설정되어 있다면 서버에서 최신 데이터 가져오기
   if (CONFIG.GAS_API_URL && CONFIG.GAS_API_URL.startsWith("http")) {
     try {
       const [missionsRes, rankingsRes, settingsRes] = await Promise.all([
-        fetch(`${CONFIG.GAS_API_URL}?action=getMissions`).then(r => r.json()),
-        fetch(`${CONFIG.GAS_API_URL}?action=getRanking&limit=20`).then(r => r.json()),
-        fetch(`${CONFIG.GAS_API_URL}?action=getSettings`).then(r => r.json())
+        fetch(`${CONFIG.GAS_API_URL}?action=getMissions&_t=${Date.now()}`).then(r => r.json()),
+        fetch(`${CONFIG.GAS_API_URL}?action=getRanking&limit=20&_t=${Date.now()}`).then(r => r.json()),
+        fetch(`${CONFIG.GAS_API_URL}?action=getSettings&_t=${Date.now()}`).then(r => r.json())
       ]);
 
-      if (missionsRes.success && missionsRes.missions.length > 0) {
+      if (missionsRes.success && Array.isArray(missionsRes.missions) && missionsRes.missions.length > 0) {
         activeMissions = missionsRes.missions;
         localStorage.setItem("challenge_missions", JSON.stringify(activeMissions));
       }
-      if (rankingsRes.success) {
+      if (rankingsRes.success && Array.isArray(rankingsRes.rankings)) {
         rankingsList = rankingsRes.rankings;
         localStorage.setItem("challenge_rankings", JSON.stringify(rankingsList));
       }
       if (settingsRes.success && settingsRes.settings) {
-        applySettings(settingsRes.settings);
-        localStorage.setItem("challenge_settings", JSON.stringify(settingsRes.settings));
+        gameSettings = { ...gameSettings, ...settingsRes.settings };
+        applySettings(gameSettings);
+        localStorage.setItem("challenge_settings", JSON.stringify(gameSettings));
       }
 
       isOnline = true;
@@ -197,6 +212,9 @@ function applySettings(settings) {
   }
   if (settings.timerSeconds) {
     totalTimerSeconds = parseInt(settings.timerSeconds) || 60;
+  }
+  if (settings.soundVolume !== undefined) {
+    soundEngine.setVolume(parseInt(settings.soundVolume) / 100);
   }
 }
 
@@ -262,6 +280,8 @@ function resetToIdle() {
   currentMission = null;
   passUsed = false;
   changeState(STATES.IDLE);
+  // 대기 상태로 복귀할 때 최신 구글 시트 데이터 자동 동기화
+  loadConfigurationAndData(true);
 }
 
 // ==========================================================================
@@ -279,7 +299,7 @@ function handleStartDraw() {
 }
 
 function handlePassMission() {
-  if (passUsed) return;
+  if (passUsed || !gameSettings.allowPass) return;
   passUsed = true;
   soundEngine.playClick();
   showToast("미션 재뽑기를 사용했습니다! (1회 한정)");
@@ -339,7 +359,7 @@ function showMissionReadyView(mission) {
   document.getElementById("readyMissionText").textContent = mission.mission;
 
   const passBtn = document.getElementById("btnPassMission");
-  passBtn.style.display = passUsed ? "none" : "block";
+  passBtn.style.display = (gameSettings.allowPass && !passUsed) ? "block" : "none";
 
   changeState(STATES.READY);
 }
@@ -435,8 +455,8 @@ async function handleVerdict(isClear) {
   // 서버 및 로컬에 결과 기록
   saveGameResult(currentParticipant, currentMission.mission, isClear ? "성공" : "실패", recordSeconds);
 
-  // 5초 후 자동 대기 화면 복귀
-  let autoCountdown = 5;
+  // 설정된 초 후 자동 대기 화면 복귀
+  let autoCountdown = gameSettings.autoReturnSeconds || 5;
   const countEl = isClear ? document.getElementById("successAutoCount") : document.getElementById("failAutoCount");
   if (countEl) countEl.textContent = autoCountdown;
 

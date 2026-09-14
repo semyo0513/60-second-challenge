@@ -2,10 +2,10 @@
  * 60초 미션 클리어 챌린지 - Google Apps Script 백엔드 (Code.gs)
  * 
  * [주요 기능]
- * 1. 스프레드시트 4종(Missions, Rankings, GameLog, Settings) 자동 초기화 및 기본 데이터 탑재
- * 2. GET/POST 요청 액션 기반 분기 라우팅
- * 3. LockService를 통한 동시성 쓰기 정합성 보장
- * 4. CacheService를 통한 빠른 조회 성능
+ * 1. 스프레드시트 4종(Missions, Rankings, GameLog, Settings) 자동 초기화 및 유연한 시트 연동
+ * 2. 관리자 웹 화면 및 구글 시트 직접 편집 양방향 지원 (스마트 파싱 및 기본값 보정)
+ * 3. GET/POST 요청 액션 기반 분기 라우팅
+ * 4. LockService를 통한 동시성 쓰기 정합성 보장
  * 5. 관리자 PIN 검증
  */
 
@@ -22,7 +22,8 @@ const DEFAULT_SETTINGS_MAP = {
   "타이머초": "60",
   "관리자PIN": "1234",
   "재도전허용": "TRUE",
-  "자동복귀초": "5"
+  "자동복귀초": "5",
+  "사운드볼륨": "80"
 };
 
 const SAMPLE_MISSIONS = [
@@ -183,18 +184,31 @@ function ensureDatabaseInitialized() {
   let settingsSheet = ss.getSheetByName(SHEET_NAMES.SETTINGS);
   if (!settingsSheet) {
     settingsSheet = ss.insertSheet(SHEET_NAMES.SETTINGS);
-    settingsSheet.appendRow(["항목", "값"]);
-    settingsSheet.getRange("A1:B1").setFontWeight("bold").setBackground("#DCFCE7");
+    settingsSheet.appendRow(["항목", "값", "설명"]);
+    settingsSheet.getRange("A1:C1").setFontWeight("bold").setBackground("#DCFCE7");
     settingsSheet.setFrozenRows(1);
     Object.keys(DEFAULT_SETTINGS_MAP).forEach(key => {
-      settingsSheet.appendRow([key, DEFAULT_SETTINGS_MAP[key]]);
+      settingsSheet.appendRow([key, DEFAULT_SETTINGS_MAP[key], getSettingDescription(key)]);
     });
   }
 }
 
+function getSettingDescription(key) {
+  const descMap = {
+    "이벤트명": "부스 화면 및 헤더에 표시되는 메인 제목",
+    "서브타이틀": "대기 화면에 표시되는 부제목",
+    "타이머초": "미션 제한 시간 (초 단위 숫자, 기본: 60)",
+    "관리자PIN": "관리자 화면 접속 및 설정 변경용 PIN (기본: 1234)",
+    "재도전허용": "미션 1회 재뽑기(Pass) 허용 여부 (TRUE / FALSE)",
+    "자동복귀초": "결과 화면 노출 후 대기화면으로 자동 복귀할 시간(초)",
+    "사운드볼륨": "기본 사운드 볼륨 (0 ~ 100)"
+  };
+  return descMap[key] || "";
+}
+
 // --- 4. 액션 처리 핸들러들 ---
 
-// 미션 목록 조회
+// 미션 목록 조회 (구글 시트에서 직접 수정한 데이터도 스마트하게 파싱)
 function getMissionsHandler(includeInactive) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAMES.MISSIONS);
@@ -206,15 +220,31 @@ function getMissionsHandler(includeInactive) {
   const missions = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    const id = String(row[0] || "");
-    const mission = String(row[1] || "");
-    const category = String(row[2] || "기타");
-    const level = String(row[3] || "중");
-    const active = String(row[4]).toUpperCase() === "TRUE" || row[4] === true;
+    const mission = String(row[1] !== undefined && row[1] !== null ? row[1] : "").trim();
+    if (!mission) continue; // 미션 내용이 비어있는 빈 행은 건너뜀
+
+    // ID가 비어있으면 행 번호 기반 자동 부여
+    let id = String(row[0] !== undefined && row[0] !== null ? row[0] : "").trim();
+    if (!id) {
+      id = "M" + String(i).padStart(3, "0");
+    }
+
+    const category = String(row[2] || "일반").trim() || "일반";
+    const level = String(row[3] || "중").trim() || "중";
+
+    // 사용여부 스마트 파싱:
+    // 빈칸이거나 TRUE/Y/O/사용 등 -> true
+    // FALSE/N/X/0/비활성/미사용 등 -> false
+    const rawActive = String(row[4] !== undefined && row[4] !== null ? row[4] : "").trim().toUpperCase();
+    let active = true;
+    if (rawActive === "FALSE" || rawActive === "N" || rawActive === "X" || rawActive === "0" || rawActive === "비활성" || rawActive === "미사용" || row[4] === false) {
+      active = false;
+    }
+
     const createdAt = row[5] ? String(row[5]) : "";
 
     if (includeInactive || active) {
-      missions.push({ id, mission, category, level, active, createdAt });
+      missions.push({ id, mission, category, level, active, createdAt, rowIndex: i + 1 });
     }
   }
 
@@ -234,8 +264,8 @@ function getRankingHandler(limit) {
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     const rowId = i + 1; // 시트 상 실제 행 번호
-    const name = String(row[1] || "");
-    const mission = String(row[2] || "");
+    const name = String(row[1] || "").trim();
+    const mission = String(row[2] || "").trim();
     const seconds = parseFloat(row[3]) || 0;
     const clearedAt = row[4] ? String(row[4]) : "";
 
@@ -259,30 +289,53 @@ function getRankingHandler(limit) {
   return { success: true, rankings: rankings };
 }
 
-// 설정값 조회
+// 설정값 조회 (구글 시트의 다양한 키 명칭 및 한글/영문 별칭 유연하게 지원)
 function getSettingsHandler() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAMES.SETTINGS);
-  const settings = {};
+  const settingsRaw = {};
 
   if (sheet) {
     const data = sheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
       const k = String(data[i][0] || "").trim();
-      const v = String(data[i][1] || "").trim();
-      if (k) settings[k] = v;
+      const v = String(data[i][1] !== undefined && data[i][1] !== null ? data[i][1] : "").trim();
+      if (k) settingsRaw[k.toLowerCase()] = v;
     }
   }
+
+  // 별칭 매핑 헬퍼
+  function findVal(keys, fallback) {
+    for (let j = 0; j < keys.length; j++) {
+      const key = keys[j].toLowerCase();
+      if (settingsRaw[key] !== undefined && settingsRaw[key] !== "") {
+        return settingsRaw[key];
+      }
+    }
+    return fallback;
+  }
+
+  const eventTitle = findVal(["이벤트명", "eventtitle", "title", "이벤트제목"], DEFAULT_SETTINGS_MAP["이벤트명"]);
+  const subTitle = findVal(["서브타이틀", "subtitle", "부제목", "설명"], DEFAULT_SETTINGS_MAP["서브타이틀"]);
+  const timerSeconds = parseInt(findVal(["타이머초", "timerseconds", "타이머", "제한시간", "초"], DEFAULT_SETTINGS_MAP["타이머초"])) || 60;
+  const adminPin = findVal(["관리자pin", "adminpin", "pin", "비밀번호", "패스워드"], DEFAULT_SETTINGS_MAP["관리자PIN"]);
+  
+  const rawPass = findVal(["재도전허용", "allowpass", "재뽑기허용", "패스허용"], DEFAULT_SETTINGS_MAP["재도전허용"]).toUpperCase();
+  const allowPass = !(rawPass === "FALSE" || rawPass === "N" || rawPass === "X" || rawPass === "0" || rawPass === "미사용");
+  
+  const autoReturnSeconds = parseInt(findVal(["자동복귀초", "autoreturnseconds", "자동복귀", "복귀초"], DEFAULT_SETTINGS_MAP["자동복귀초"])) || 5;
+  const soundVolume = parseInt(findVal(["사운드볼륨", "soundvolume", "볼륨"], DEFAULT_SETTINGS_MAP["사운드볼륨"])) || 80;
 
   return {
     success: true,
     settings: {
-      eventTitle: settings["이벤트명"] || DEFAULT_SETTINGS_MAP["이벤트명"],
-      subTitle: settings["서브타이틀"] || DEFAULT_SETTINGS_MAP["서브타이틀"],
-      timerSeconds: parseInt(settings["타이머초"]) || 60,
-      adminPin: settings["관리자PIN"] || "1234",
-      allowPass: (settings["재도전허용"] || "TRUE").toUpperCase() === "TRUE",
-      autoReturnSeconds: parseInt(settings["자동복귀초"]) || 5
+      eventTitle,
+      subTitle,
+      timerSeconds,
+      adminPin,
+      allowPass,
+      autoReturnSeconds,
+      soundVolume
     }
   };
 }
@@ -299,6 +352,7 @@ function getGameLogsHandler(limit) {
   const logs = [];
   for (let i = data.length - 1; i >= 1; i--) {
     const row = data[i];
+    if (!row[1] && !row[2]) continue;
     logs.push({
       id: row[0],
       name: row[1],
@@ -366,7 +420,7 @@ function addMissionHandler(payload) {
   return { success: true, message: "미션이 등록되었습니다.", id: id };
 }
 
-// 미션 수정
+// 미션 수정 (내용, 카테고리, 난이도, 사용여부)
 function updateMissionHandler(payload) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAMES.MISSIONS);
@@ -374,17 +428,17 @@ function updateMissionHandler(payload) {
   const data = sheet.getDataRange().getValues();
 
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === id) {
+    if (String(data[i][0]).trim() === id || (payload.rowIndex && (i + 1) === parseInt(payload.rowIndex))) {
       const row = i + 1;
-      if (payload.mission !== undefined) sheet.getRange(row, 2).setValue(payload.mission);
-      if (payload.category !== undefined) sheet.getRange(row, 3).setValue(payload.category);
-      if (payload.level !== undefined) sheet.getRange(row, 4).setValue(payload.level);
+      if (payload.mission !== undefined) sheet.getRange(row, 2).setValue(String(payload.mission).trim());
+      if (payload.category !== undefined) sheet.getRange(row, 3).setValue(String(payload.category).trim());
+      if (payload.level !== undefined) sheet.getRange(row, 4).setValue(String(payload.level).trim());
       if (payload.active !== undefined) sheet.getRange(row, 5).setValue(payload.active ? "TRUE" : "FALSE");
       return { success: true, message: "미션이 수정되었습니다." };
     }
   }
 
-  return { success: false, message: "해당 ID의 미션을 찾을 수 없습니다." };
+  return { success: false, message: "해당 ID의 미션을 찾을 수 없습니다: " + id };
 }
 
 // 미션 삭제
@@ -394,7 +448,7 @@ function deleteMissionHandler(id) {
   const data = sheet.getDataRange().getValues();
 
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(id).trim()) {
+    if (String(data[i][0]).trim() === String(id).trim()) {
       sheet.deleteRow(i + 1);
       return { success: true, message: "미션이 삭제되었습니다." };
     }
@@ -452,32 +506,34 @@ function deleteRankingItemHandler(rowId) {
   return { success: false, message: "유효하지 않은 행 번호입니다." };
 }
 
-// 설정값 일괄 저장
+// 설정값 일괄 저장 (Settings 시트에 기존 구조 유지하며 스마트 업데이트)
 function updateSettingsHandler(newSettings) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_NAMES.SETTINGS);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAMES.SETTINGS);
   }
-  sheet.clear();
-  sheet.appendRow(["항목", "값"]);
-  sheet.getRange("A1:B1").setFontWeight("bold").setBackground("#DCFCE7");
-  sheet.setFrozenRows(1);
 
   const map = {
-    "이벤트명": newSettings.eventTitle || DEFAULT_SETTINGS_MAP["이벤트명"],
-    "서브타이틀": newSettings.subTitle || DEFAULT_SETTINGS_MAP["서브타이틀"],
+    "이벤트명": newSettings.eventTitle !== undefined ? newSettings.eventTitle : DEFAULT_SETTINGS_MAP["이벤트명"],
+    "서브타이틀": newSettings.subTitle !== undefined ? newSettings.subTitle : DEFAULT_SETTINGS_MAP["서브타이틀"],
     "타이머초": String(newSettings.timerSeconds || 60),
     "관리자PIN": String(newSettings.adminPin || "1234"),
     "재도전허용": newSettings.allowPass ? "TRUE" : "FALSE",
-    "자동복귀초": String(newSettings.autoReturnSeconds || 5)
+    "자동복귀초": String(newSettings.autoReturnSeconds || 5),
+    "사운드볼륨": String(newSettings.soundVolume || 80)
   };
 
+  sheet.clear();
+  sheet.appendRow(["항목", "값", "설명"]);
+  sheet.getRange("A1:C1").setFontWeight("bold").setBackground("#DCFCE7");
+  sheet.setFrozenRows(1);
+
   Object.keys(map).forEach(key => {
-    sheet.appendRow([key, map[key]]);
+    sheet.appendRow([key, map[key], getSettingDescription(key)]);
   });
 
-  return { success: true, message: "설정이 저장되었습니다." };
+  return { success: true, message: "설정이 성공적으로 저장되었습니다." };
 }
 
 // 전체 로그 초기화

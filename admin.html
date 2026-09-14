@@ -14,31 +14,46 @@
       color: #f8fafc;
     }
     .admin-wrapper {
-      max-width: 1300px;
+      max-width: 1350px;
       margin: 0 auto;
-      padding: 2rem;
+      padding: 1.8rem;
     }
     .admin-top-nav {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 1.5rem;
+      padding-bottom: 1.2rem;
       border-bottom: 1px solid rgba(245, 158, 11, 0.2);
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
     }
     .admin-title-area h1 {
-      font-size: 1.8rem;
+      font-size: 1.7rem;
       color: #fbbf24;
       display: flex;
       align-items: center;
       gap: 0.6rem;
     }
+    .sync-info-banner {
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      border-radius: 10px;
+      padding: 0.8rem 1.2rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.95rem;
+      color: #cbd5e1;
+    }
     .admin-tabs {
       display: flex;
       gap: 0.8rem;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       padding-bottom: 0.5rem;
+      flex-wrap: wrap;
     }
     .admin-tab-btn {
       background: rgba(255, 255, 255, 0.05);
@@ -81,6 +96,8 @@
       margin-bottom: 1.2rem;
       padding-bottom: 0.8rem;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      flex-wrap: wrap;
+      gap: 0.8rem;
     }
     .admin-card-header h2 {
       font-size: 1.3rem;
@@ -129,6 +146,7 @@
       font-weight: 700;
       cursor: pointer;
       border: none;
+      transition: all 0.2s;
     }
     .status-toggle-btn.active { background: #059669; color: #fff; }
     .status-toggle-btn.inactive { background: #475569; color: #94a3b8; }
@@ -140,7 +158,10 @@
       font-weight: 700;
       border: none;
       cursor: pointer;
+      transition: background 0.2s;
     }
+    .btn-edit { background: rgba(6, 182, 212, 0.2); color: #38bdf8; margin-right: 4px; }
+    .btn-edit:hover { background: #0284c7; color: #fff; }
     .btn-delete { background: rgba(244, 63, 94, 0.2); color: #f87171; }
     .btn-delete:hover { background: #e11d48; color: #fff; }
 
@@ -163,6 +184,7 @@
       color: #fff;
       font-size: 1rem;
       outline: none;
+      box-sizing: border-box;
     }
     .admin-input:focus, .admin-select:focus, .admin-textarea:focus {
       border-color: #f59e0b;
@@ -195,6 +217,7 @@
       display: none;
       align-items: center;
       justify-content: center;
+      padding: 1rem;
     }
     .admin-modal-box {
       background: #131b2e;
@@ -202,7 +225,8 @@
       border-radius: 12px;
       padding: 2rem;
       width: 100%;
-      max-width: 500px;
+      max-width: 520px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
     }
   </style>
 </head>
@@ -228,11 +252,23 @@
       <div class="admin-title-area">
         <h1>⚙️ 60초 미션 챌린지 — 관리자 대시보드</h1>
       </div>
-      <div style="display: flex; gap: 0.8rem;">
+      <div style="display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap;">
+        <button id="btnRefreshAll" class="icon-btn" style="border-color: #06b6d4; color: #38bdf8;" title="구글 시트의 최신 미션/설정 데이터를 즉시 동기화합니다.">
+          <span>🔄 데이터 새로고침</span>
+        </button>
         <a href="index.html" class="icon-btn" style="text-decoration: none;">🎮 게임 화면 가기</a>
         <button id="btnLogout" class="icon-btn" style="background: rgba(244, 63, 94, 0.2); border-color: rgba(244, 63, 94, 0.4);">🚪 로그아웃</button>
       </div>
     </header>
+
+    <!-- 구글 시트 양방향 연동 안내 배너 -->
+    <div class="sync-info-banner">
+      <div>
+        <strong>💡 구글 시트 양방향 연동:</strong> 이 관리자 화면에서 미션 및 설정을 변경하거나, 
+        <strong>구글 스프레드시트(`Missions`, `Settings` 시트)</strong>에서 직접 행을 추가/수정해도 게임에 실시간 반영됩니다.
+      </div>
+      <span id="connectionBadgeAdmin" class="badge badge-emerald" style="white-space: nowrap; margin-left: 1rem;">연동 확인 중...</span>
+    </div>
 
     <!-- 탭 버튼 네비게이션 -->
     <nav class="admin-tabs">
@@ -247,16 +283,16 @@
       <div class="admin-card">
         <div class="admin-card-header">
           <h2>📋 등록된 미션 목록 <span id="missionCountBadge" class="badge badge-cyan" style="margin-left: 0.5rem;">0개</span></h2>
-          <div style="display: flex; gap: 0.6rem;">
+          <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
             <button id="btnBatchPresetMissions" class="icon-btn" style="background: rgba(139, 92, 246, 0.2); border-color: #8b5cf6;">✨ 추천 미션 20종 일괄 추가</button>
             <button id="btnOpenAddMissionModal" class="btn-primary-glow" style="font-size: 0.95rem; padding: 0.5rem 1.2rem;">+ 새 미션 추가</button>
           </div>
         </div>
 
         <!-- 검색 & 카테고리 필터 -->
-        <div style="display: flex; gap: 1rem; margin-bottom: 1.2rem;">
-          <input type="text" id="missionSearchInput" class="admin-input" placeholder="🔍 미션 내용 또는 ID 검색..." style="flex: 2;" />
-          <select id="categoryFilter" class="admin-select" style="flex: 1;">
+        <div style="display: flex; gap: 1rem; margin-bottom: 1.2rem; flex-wrap: wrap;">
+          <input type="text" id="missionSearchInput" class="admin-input" placeholder="🔍 미션 내용 또는 ID 검색..." style="flex: 2; min-width: 200px;" />
+          <select id="categoryFilter" class="admin-select" style="flex: 1; min-width: 140px;">
             <option value="ALL">모든 카테고리</option>
             <option value="찾기">찾기</option>
             <option value="말하기">말하기</option>
@@ -272,12 +308,12 @@
           <table class="admin-table">
             <thead>
               <tr>
-                <th style="width: 100px;">ID</th>
-                <th>미션 내용</th>
+                <th style="width: 90px;">ID</th>
+                <th style="text-align: left; padding-left: 1.5rem;">미션 내용</th>
                 <th style="width: 100px;">카테고리</th>
                 <th style="width: 90px;">난이도</th>
                 <th style="width: 110px;">상태</th>
-                <th style="width: 80px;">관리</th>
+                <th style="width: 130px;">관리</th>
               </tr>
             </thead>
             <tbody id="missionsTableBody">
@@ -290,39 +326,44 @@
 
     <!-- TAB 2: 게임 설정 -->
     <section id="tabSettings" class="tab-content-panel">
-      <div class="admin-card" style="max-width: 750px;">
+      <div class="admin-card" style="max-width: 800px;">
         <div class="admin-card-header">
           <h2>⚙️ 행사 기본 환경 설정</h2>
+          <span style="font-size: 0.85rem; color: #94a3b8;">Google Sheets의 `Settings` 시트와 실시간 동기화됩니다.</span>
         </div>
         <div class="admin-form-group">
-          <label>이벤트 타이틀</label>
-          <input type="text" id="settingEventTitle" class="admin-input" />
+          <label>이벤트 타이틀 (메인 제목)</label>
+          <input type="text" id="settingEventTitle" class="admin-input" placeholder="예: 📚 60초 독서 미션 챌린지" />
         </div>
         <div class="admin-form-group">
-          <label>서브 타이틀</label>
-          <input type="text" id="settingSubTitle" class="admin-input" />
+          <label>서브 타이틀 (부제목 안내 문구)</label>
+          <input type="text" id="settingSubTitle" class="admin-input" placeholder="예: 책 속의 미션을 60초 안에 클리어하라!" />
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
           <div class="admin-form-group">
-            <label>타이머 제한시간 (초 단위)</label>
+            <label>타이머 제한시간 (초 단위 숫자)</label>
             <input type="number" id="settingTimerSeconds" class="admin-input" min="10" max="300" />
           </div>
           <div class="admin-form-group">
-            <label>관리자 PIN 번호</label>
+            <label>관리자 PIN 번호 (접속 비밀번호)</label>
             <input type="text" id="settingAdminPin" class="admin-input" maxlength="10" />
           </div>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
           <div class="admin-form-group">
-            <label>결과창 노출 후 자동 복귀 (초)</label>
+            <label>결과창 노출 후 대기화면 자동 복귀 (초)</label>
             <input type="number" id="settingAutoReturn" class="admin-input" min="2" max="30" />
           </div>
-          <div class="admin-form-group" style="display: flex; align-items: center; gap: 0.6rem; padding-top: 1.8rem;">
-            <input type="checkbox" id="settingAllowPass" style="width: 20px; height: 20px; accent-color: #f59e0b;" />
-            <label for="settingAllowPass" style="margin-bottom: 0; cursor: pointer;">미션 1회 재뽑기(Pass) 허용</label>
+          <div class="admin-form-group">
+            <label>기본 사운드 볼륨 (%)</label>
+            <input type="number" id="settingSoundVolume" class="admin-input" min="0" max="100" />
           </div>
         </div>
-        <button id="btnSaveSettings" class="btn-primary-glow" style="margin-top: 1rem; width: 100%; justify-content: center;">설정 저장하기</button>
+        <div class="admin-form-group" style="display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0;">
+          <input type="checkbox" id="settingAllowPass" style="width: 20px; height: 20px; accent-color: #f59e0b;" />
+          <label for="settingAllowPass" style="margin-bottom: 0; cursor: pointer;">미션 1회 재뽑기(Pass) 허용</label>
+        </div>
+        <button id="btnSaveSettings" class="btn-primary-glow" style="margin-top: 1rem; width: 100%; justify-content: center;">설정 저장하기 (구글 시트 반영)</button>
       </div>
     </section>
 
@@ -331,7 +372,7 @@
       <div class="admin-card">
         <div class="admin-card-header">
           <h2>🏆 명예의 전당 랭킹 목록</h2>
-          <div style="display: flex; gap: 0.6rem;">
+          <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
             <button id="btnExportRankingCsv" class="icon-btn">📥 CSV 내보내기</button>
             <button id="btnResetRankings" class="icon-btn" style="background: rgba(244, 63, 94, 0.2); border-color: #f43f5e;">⚠️ 랭킹 전체 초기화</button>
           </div>
@@ -342,7 +383,7 @@
               <tr>
                 <th style="width: 90px;">순위</th>
                 <th style="width: 140px;">참가자명</th>
-                <th>성공 미션</th>
+                <th style="text-align: left; padding-left: 1.5rem;">성공 미션</th>
                 <th style="width: 120px;">소요시간</th>
                 <th style="width: 180px;">클리어 일시</th>
               </tr>
@@ -385,7 +426,7 @@
       <div class="admin-card">
         <div class="admin-card-header">
           <h2>📊 전체 시도 로그 (성공/실패 이력)</h2>
-          <div style="display: flex; gap: 0.6rem;">
+          <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
             <button id="btnExportLogsCsv" class="icon-btn">📥 CSV 내보내기</button>
             <button id="btnResetLogs" class="icon-btn" style="background: rgba(244, 63, 94, 0.2); border-color: #f43f5e;">⚠️ 로그 전체 초기화</button>
           </div>
@@ -396,7 +437,7 @@
               <tr>
                 <th style="width: 80px;">순번</th>
                 <th style="width: 140px;">참가자명</th>
-                <th>수행 미션</th>
+                <th style="text-align: left; padding-left: 1.5rem;">수행 미션</th>
                 <th style="width: 100px;">결과</th>
                 <th style="width: 120px;">기록시간</th>
               </tr>
@@ -411,7 +452,7 @@
 
   </div>
 
-  <!-- 신규 미션 추가 모달 -->
+  <!-- 3. 신규 미션 추가 모달 -->
   <div id="addMissionModal" class="admin-modal">
     <div class="admin-modal-box">
       <h2 style="color: #fbbf24; margin-bottom: 1.2rem;">✨ 신규 미션 등록</h2>
@@ -444,6 +485,50 @@
         <div style="display: flex; gap: 0.8rem; margin-top: 1.5rem;">
           <button type="button" id="btnAddMissionSubmit" class="btn-primary-glow" style="flex: 1; justify-content: center; font-size: 1rem; padding: 0.8rem;">등록하기</button>
           <button type="button" id="btnCloseAddMissionModal" class="icon-btn" style="flex: 1; justify-content: center;">취소</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. 미션 수정 모달 -->
+  <div id="editMissionModal" class="admin-modal">
+    <div class="admin-modal-box">
+      <h2 style="color: #38bdf8; margin-bottom: 1.2rem;">✏️ 미션 수정</h2>
+      <form id="editMissionForm" onsubmit="return false;">
+        <input type="hidden" id="editMissionId" />
+        <input type="hidden" id="editMissionRowIndex" />
+        <div class="admin-form-group">
+          <label>미션 내용</label>
+          <textarea id="editMissionText" class="admin-textarea" rows="3" required></textarea>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="admin-form-group">
+            <label>카테고리</label>
+            <select id="editCategory" class="admin-select">
+              <option value="찾기">찾기</option>
+              <option value="말하기">말하기</option>
+              <option value="낭독">낭독</option>
+              <option value="신체">신체</option>
+              <option value="퀴즈">퀴즈</option>
+              <option value="일반">일반</option>
+            </select>
+          </div>
+          <div class="admin-form-group">
+            <label>난이도</label>
+            <select id="editLevel" class="admin-select">
+              <option value="하">하</option>
+              <option value="중">중</option>
+              <option value="상">상</option>
+            </select>
+          </div>
+        </div>
+        <div class="admin-form-group" style="display: flex; align-items: center; gap: 0.6rem; padding-top: 0.5rem;">
+          <input type="checkbox" id="editActive" style="width: 18px; height: 18px; accent-color: #10b981;" />
+          <label for="editActive" style="margin-bottom: 0; cursor: pointer;">미션 활성화 (뽑기 대상 포함)</label>
+        </div>
+        <div style="display: flex; gap: 0.8rem; margin-top: 1.5rem;">
+          <button type="button" id="btnEditMissionSubmit" class="btn-primary-glow" style="flex: 1; justify-content: center; font-size: 1rem; padding: 0.8rem; background: linear-gradient(135deg, #0284c7, #0369a1);">수정 저장</button>
+          <button type="button" id="btnCloseEditMissionModal" class="icon-btn" style="flex: 1; justify-content: center;">취소</button>
         </div>
       </form>
     </div>

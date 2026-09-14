@@ -80,9 +80,15 @@ async function handlePinSubmit() {
 }
 
 // ==========================================================================
-// 2. 전체 데이터 불러오기
+// 2. 전체 데이터 불러오기 (Google Sheets + LocalStorage)
 // ==========================================================================
 async function loadAllAdminData() {
+  const badgeEl = document.getElementById("connectionBadgeAdmin");
+  if (badgeEl) {
+    badgeEl.textContent = "구글 시트 연동 확인 중...";
+    badgeEl.className = "badge badge-cyan";
+  }
+
   // 1) 로컬 데이터 로드
   const lMissions = localStorage.getItem("challenge_missions");
   const lRankings = localStorage.getItem("challenge_rankings");
@@ -98,10 +104,10 @@ async function loadAllAdminData() {
   if (CONFIG.GAS_API_URL && CONFIG.GAS_API_URL.startsWith("http")) {
     try {
       const [mRes, rRes, sRes, lRes] = await Promise.all([
-        fetch(`${CONFIG.GAS_API_URL}?action=getAllMissions`).then(r => r.json()),
-        fetch(`${CONFIG.GAS_API_URL}?action=getRanking&limit=100`).then(r => r.json()),
-        fetch(`${CONFIG.GAS_API_URL}?action=getSettings`).then(r => r.json()),
-        fetch(`${CONFIG.GAS_API_URL}?action=getGameLogs`).then(r => r.json())
+        fetch(`${CONFIG.GAS_API_URL}?action=getAllMissions&_t=${Date.now()}`).then(r => r.json()),
+        fetch(`${CONFIG.GAS_API_URL}?action=getRanking&limit=100&_t=${Date.now()}`).then(r => r.json()),
+        fetch(`${CONFIG.GAS_API_URL}?action=getSettings&_t=${Date.now()}`).then(r => r.json()),
+        fetch(`${CONFIG.GAS_API_URL}?action=getGameLogs&_t=${Date.now()}`).then(r => r.json())
       ]);
 
       if (mRes.success && mRes.missions) {
@@ -120,8 +126,22 @@ async function loadAllAdminData() {
         gameLogs = lRes.logs;
         localStorage.setItem("challenge_gamelog", JSON.stringify(gameLogs));
       }
+
+      if (badgeEl) {
+        badgeEl.textContent = "● 구글 시트 연결 정상";
+        badgeEl.className = "badge badge-emerald";
+      }
     } catch (e) {
       console.warn("GAS 연동 데이터 로드 실패 (로컬 데이터 사용):", e);
+      if (badgeEl) {
+        badgeEl.textContent = "● 로컬/오프라인 모드";
+        badgeEl.className = "badge badge-rose";
+      }
+    }
+  } else {
+    if (badgeEl) {
+      badgeEl.textContent = "● 로컬/오프라인 모드";
+      badgeEl.className = "badge badge-rose";
     }
   }
 
@@ -139,6 +159,12 @@ function setupAdminEvents() {
   document.getElementById("btnSubmitPin").addEventListener("click", handlePinSubmit);
   document.getElementById("inputAdminPin").addEventListener("keydown", (e) => {
     if (e.key === "Enter") handlePinSubmit();
+  });
+
+  // 데이터 전체 새로고침
+  document.getElementById("btnRefreshAll").addEventListener("click", async () => {
+    await loadAllAdminData();
+    alert("구글 시트의 최신 미션 및 설정 데이터를 동기화했습니다.");
   });
 
   // 로그아웃
@@ -173,6 +199,12 @@ function setupAdminEvents() {
   });
   document.getElementById("btnAddMissionSubmit").addEventListener("click", handleAddMission);
 
+  // 미션 수정 모달 닫기 및 제출
+  document.getElementById("btnCloseEditMissionModal").addEventListener("click", () => {
+    document.getElementById("editMissionModal").style.display = "none";
+  });
+  document.getElementById("btnEditMissionSubmit").addEventListener("click", handleEditMissionSubmit);
+
   // 추천 프리셋 미션 일괄 추가
   document.getElementById("btnBatchPresetMissions").addEventListener("click", handleBatchPresetMissions);
 
@@ -189,7 +221,7 @@ function setupAdminEvents() {
 }
 
 // ==========================================================================
-// 4. 미션 관리 (CRUD)
+// 4. 미션 관리 (CRUD & Edit)
 // ==========================================================================
 function renderMissionsTable() {
   const tbody = document.getElementById("missionsTableBody");
@@ -217,20 +249,88 @@ function renderMissionsTable() {
 
     tr.innerHTML = `
       <td><code>${m.id || "-"}</code></td>
-      <td style="text-align: left; font-weight: 600;">${m.mission}</td>
+      <td style="text-align: left; padding-left: 1.5rem; font-weight: 600;">${m.mission}</td>
       <td><span class="badge badge-cyan">${m.category || "일반"}</span></td>
       <td><span class="badge badge-purple">${m.level || "중"}</span></td>
       <td>
-        <button class="status-toggle-btn ${isActive ? 'active' : 'inactive'}" onclick="toggleMissionActive('${m.id}')">
+        <button class="status-toggle-btn ${isActive ? 'active' : 'inactive'}" onclick="toggleMissionActive('${m.id}')" title="클릭하여 활성/비활성 전환">
           ${isActive ? "사용중" : "비활성"}
         </button>
       </td>
       <td>
+        <button class="action-sm-btn btn-edit" onclick="openEditMissionModal('${m.id}')">수정</button>
         <button class="action-sm-btn btn-delete" onclick="deleteMission('${m.id}')">삭제</button>
       </td>
     `;
     tbody.appendChild(tr);
   });
+}
+
+// 미션 수정 모달 열기
+function openEditMissionModal(id) {
+  const target = missions.find(m => m.id === id);
+  if (!target) return;
+
+  document.getElementById("editMissionId").value = target.id;
+  document.getElementById("editMissionRowIndex").value = target.rowIndex || "";
+  document.getElementById("editMissionText").value = target.mission;
+  document.getElementById("editCategory").value = target.category || "일반";
+  document.getElementById("editLevel").value = target.level || "중";
+  document.getElementById("editActive").checked = target.active !== false;
+
+  document.getElementById("editMissionModal").style.display = "flex";
+}
+
+// 미션 수정 제출
+async function handleEditMissionSubmit() {
+  const id = document.getElementById("editMissionId").value;
+  const rowIndex = document.getElementById("editMissionRowIndex").value;
+  const missionText = document.getElementById("editMissionText").value.trim();
+  const category = document.getElementById("editCategory").value;
+  const level = document.getElementById("editLevel").value;
+  const active = document.getElementById("editActive").checked;
+
+  if (!missionText) {
+    alert("미션 내용을 입력해주세요.");
+    return;
+  }
+
+  const target = missions.find(m => m.id === id);
+  if (target) {
+    target.mission = missionText;
+    target.category = category;
+    target.level = level;
+    target.active = active;
+  }
+
+  localStorage.setItem("challenge_missions", JSON.stringify(missions));
+
+  if (CONFIG.GAS_API_URL && CONFIG.GAS_API_URL.startsWith("http")) {
+    try {
+      await fetch(CONFIG.GAS_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "updateMission",
+          payload: {
+            pin: currentAdminPin,
+            id: id,
+            rowIndex: rowIndex,
+            mission: missionText,
+            category: category,
+            level: level,
+            active: active
+          }
+        })
+      });
+    } catch (e) {
+      console.warn("GAS 미션 수정 오류:", e);
+    }
+  }
+
+  document.getElementById("editMissionModal").style.display = "none";
+  renderMissionsTable();
+  alert("미션이 성공적으로 수정되었습니다.");
 }
 
 async function handleAddMission() {
@@ -322,7 +422,7 @@ async function deleteMission(id) {
 }
 
 async function handleBatchPresetMissions() {
-  if (!confirm("독서행사 추천 기본 미션 20종을 추가하시겠습니까? (중복 미션은 자동으로 추가됩니다)")) return;
+  if (!confirm("독서행사 추천 기본 미션 20종을 추가하시겠습니까?")) return;
 
   missions.push(...CONFIG.DEFAULT_MISSIONS);
   localStorage.setItem("challenge_missions", JSON.stringify(missions));
@@ -354,16 +454,18 @@ function renderSettingsForm() {
   document.getElementById("settingAdminPin").value = settings.adminPin || CONFIG.DEFAULT_SETTINGS.adminPin;
   document.getElementById("settingAllowPass").checked = settings.allowPass !== false;
   document.getElementById("settingAutoReturn").value = settings.autoReturnSeconds || CONFIG.DEFAULT_SETTINGS.autoReturnSeconds;
+  document.getElementById("settingSoundVolume").value = settings.soundVolume !== undefined ? settings.soundVolume : 80;
 }
 
 async function handleSaveSettings() {
   const newSettings = {
-    eventTitle: document.getElementById("settingEventTitle").value.trim(),
-    subTitle: document.getElementById("settingSubTitle").value.trim(),
+    eventTitle: document.getElementById("settingEventTitle").value.trim() || CONFIG.DEFAULT_SETTINGS.eventTitle,
+    subTitle: document.getElementById("settingSubTitle").value.trim() || CONFIG.DEFAULT_SETTINGS.subTitle,
     timerSeconds: parseInt(document.getElementById("settingTimerSeconds").value) || 60,
     adminPin: document.getElementById("settingAdminPin").value.trim() || "1234",
     allowPass: document.getElementById("settingAllowPass").checked,
-    autoReturnSeconds: parseInt(document.getElementById("settingAutoReturn").value) || 5
+    autoReturnSeconds: parseInt(document.getElementById("settingAutoReturn").value) || 5,
+    soundVolume: parseInt(document.getElementById("settingSoundVolume").value) || 80
   };
 
   settings = newSettings;
@@ -386,7 +488,7 @@ async function handleSaveSettings() {
 
   currentAdminPin = newSettings.adminPin;
   sessionStorage.setItem("admin_auth_pin", currentAdminPin);
-  alert("설정이 성공적으로 저장되었습니다!");
+  alert("설정이 구글 시트와 로컬에 성공적으로 저장되었습니다!");
 }
 
 // ==========================================================================
@@ -406,7 +508,7 @@ function renderRankingsTable() {
     tr.innerHTML = `
       <td><strong>${idx + 1}위</strong></td>
       <td style="font-weight: 700;">${r.name}</td>
-      <td style="text-align: left;">${r.mission}</td>
+      <td style="text-align: left; padding-left: 1.5rem;">${r.mission}</td>
       <td style="color: #fbbf24; font-weight: 800;">${r.seconds}초</td>
       <td>${r.clearedAt || "-"}</td>
     `;
@@ -445,7 +547,7 @@ function exportRankingsCsv() {
 
   let csvContent = "\uFEFF순위,참가자명,미션내용,소요시간(초),클리어일시\n";
   rankings.forEach((r, i) => {
-    csvContent += `"${i + 1}","${r.name}","${r.mission.replace(/"/g, '""')}","${r.seconds}","${r.clearedAt || ''}"\n`;
+    csvContent += `"${i + 1}","${r.name}","${(r.mission || '').replace(/"/g, '""')}","${r.seconds}","${r.clearedAt || ''}"\n`;
   });
 
   downloadCsvFile(csvContent, `랭킹보드_결과_${getTodayString()}.csv`);
@@ -483,7 +585,7 @@ function renderStatsAndLogs() {
     tr.innerHTML = `
       <td>${gameLogs.length - i}</td>
       <td style="font-weight: 700;">${l.name}</td>
-      <td style="text-align: left;">${l.mission}</td>
+      <td style="text-align: left; padding-left: 1.5rem;">${l.mission}</td>
       <td><span class="badge ${isSuccess ? 'badge-emerald' : 'badge-rose'}">${l.result}</span></td>
       <td>${l.seconds}초</td>
     `;
@@ -522,7 +624,7 @@ function exportLogsCsv() {
 
   let csvContent = "\uFEFF순번,참가자명,미션내용,결과,소요시간(초),일시\n";
   gameLogs.forEach((l, i) => {
-    csvContent += `"${gameLogs.length - i}","${l.name}","${l.mission.replace(/"/g, '""')}","${l.result}","${l.seconds}","${l.timestamp || ''}"\n`;
+    csvContent += `"${gameLogs.length - i}","${l.name}","${(l.mission || '').replace(/"/g, '""')}","${l.result}","${l.seconds}","${l.timestamp || ''}"\n`;
   });
 
   downloadCsvFile(csvContent, `게임전체로그_${getTodayString()}.csv`);
